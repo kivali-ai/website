@@ -1,0 +1,23 @@
+// The kivali.ai marketing site: static assets only, no Worker script.
+// It owns the apex domain as a Custom Domain. Other Workers in this repo can claim
+// paths on it (e.g. "kivali.ai/api/*") with ordinary routes, which take precedence
+// over a Custom Domain.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "kivali-site",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    // /privacy serves privacy.html; /privacy.html redirects to /privacy.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "kivali.ai", "custom_domain": true }
+  ],
+  // Production is served only from kivali.ai. Preview URLs stay on so pull requests
+  // get a *.workers.dev preview of each uploaded version.
+  "workers_dev": false,
+  "preview_urls": true,
+  "observability": { "enabled": true }
+}

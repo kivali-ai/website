@@ -1,0 +1,134 @@
+/* Kivali site styles. Values follow the design handoff (colors, type and spacing are final). */
+
+@font-face { font-family: "Space Grotesk"; src: url("../fonts/SpaceGrotesk-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url("../fonts/SpaceGrotesk-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/IBMPlexMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/IBMPlexMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+
+:root {
+  color-scheme: light;
+  --paper: #F6F3EA;
+  --paper-raised: #FCFAF5;
+  --line: #E2DDD1;
+  --ink: #24211C;
+  --ink-muted: #615D55;
+  --ink-faint: #8D8980;
+  --signal: #EDBE52;
+  --cobalt: #3F53A8;
+  --link: var(--cobalt);
+  --shadow-sm: 0 1px 2px #24211C14;
+  --focus-ring: 0 0 0 2px #F6F3EA, 0 0 0 4px #3F53A8;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html, body { margin: 0; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; }
+body { font: 400 15px/24px var(--font-sans); }
+
+a { color: var(--ink-muted); text-decoration: none; border-radius: 4px; transition: color 120ms var(--ease-out); }
+a:hover { color: var(--ink); }
+a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+
+/* Page shell */
+.page { position: relative; min-height: 100vh; display: flex; flex-direction: column; }
+.page--home { overflow: hidden; }
+
+/* Dot grid: its own layer so the opacity doesn't touch the content. */
+.dot-grid {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.32;
+  background-image: radial-gradient(circle, var(--ink-faint) 1.1px, transparent 1.6px);
+  background-size: 16px 16px; background-position: 8px 8px;
+}
+
+/* Knockout: a pill of plain paper so small items don't land between grid dots. */
+.knockout { border-radius: 999px; background: var(--paper); }
+
+/* Motif row */
+.motif { display: flex; align-items: center; gap: 8px; }
+.motif > span { display: block; border-radius: 999px; }
+.motif .m-signal { width: 16px; height: 16px; background: var(--signal); }
+.motif .m-cobalt { width: 48px; height: 16px; background: var(--cobalt); }
+.motif .m-ink { width: 16px; height: 16px; background: var(--ink); }
+.motif .m-dot { width: 6px; height: 6px; background: var(--ink-faint); }
+.motif .m-ink + .m-dot { margin-left: 4px; }
+.motif--sm { gap: 6px; }
+.motif--sm .m-signal, .motif--sm .m-ink { width: 12px; height: 12px; }
+.motif--sm .m-cobalt { width: 36px; height: 12px; }
+.motif--sm .m-dot { width: 5px; height: 5px; }
+.motif--sm .m-ink + .m-dot { margin-left: 3px; }
+
+/* Home */
+.home-main {
+  position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 96px 24px 64px; text-align: center;
+}
+.home-icon { display: block; width: clamp(64px, 7vw, 88px); height: auto; margin-bottom: clamp(32px, 4vw, 48px); }
+.home-title { margin: 0; line-height: 0; }
+.home-wordmark { display: block; width: min(410px, 72vw); height: auto; }
+.tagline {
+  margin: 20px 0 0; padding: 8px 16px;
+  font: 400 clamp(18px, 1.6vw, 22px)/1.45 var(--font-sans); color: var(--ink-muted); text-wrap: pretty;
+}
+.home-main .motif { margin-top: 44px; padding: 12px 16px; }
+
+/* Footer */
+.site-footer {
+  position: relative; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 16px; padding: 32px;
+}
+.site-footer--rule { border-top: 1px solid var(--line); }
+.copyright {
+  font: 500 11px/16px var(--font-mono); letter-spacing: 0.02em; color: var(--ink-muted);
+  padding: 4px 12px; margin-left: -12px;
+}
+.footer-nav { display: flex; flex-wrap: wrap; gap: 4px; font: 400 13px/18px var(--font-sans); margin-right: -12px; }
+.footer-nav a { padding: 4px 12px; border-radius: 999px; }
+.footer-nav a[aria-current="page"] { color: var(--ink); }
+
+/* Legal pages */
+.legal-header { position: relative; height: 96px; display: flex; align-items: center; padding: 0 32px; }
+.home-link { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 16px; margin-left: -16px; }
+.home-link .icon { display: block; width: 32px; height: 32px; }
+.home-link .wordmark { display: block; height: 26px; width: auto; }
+
+.legal-main { flex: 1; width: 100%; max-width: 680px; margin: 0 auto; padding: 80px 24px 96px; box-sizing: border-box; }
+.eyebrow { font: 500 11px/16px var(--font-mono); letter-spacing: 0.02em; color: var(--ink-muted); }
+.legal-title { margin: 8px 0 0; font: 600 clamp(40px, 5vw, 56px)/1.07 var(--font-display); letter-spacing: -0.03em; color: var(--ink); }
+.legal-main .motif { margin: 32px 0 48px; }
+
+/* Prose: matches the design system's kv-prose. */
+.prose { font: 400 15px/24px var(--font-sans); color: var(--ink); text-wrap: pretty; }
+.prose > :first-child { margin-top: 0; }
+.prose h2, .prose h3 { letter-spacing: -0.01em; margin: 1.6em 0 0.5em; }
+.prose h2 { font: 500 20px/28px var(--font-display); }
+.prose h3 { font: 600 16px/24px var(--font-sans); }
+.prose p, .prose ul { margin: 0 0 1em; }
+.prose ul { padding-left: 1.4em; }
+.prose li { margin: 0.25em 0; }
+.prose li::marker { color: var(--ink-muted); }
+.prose strong { font-weight: 600; }
+.prose .effective { font: 500 11px/16px var(--font-mono); letter-spacing: 0.02em; color: var(--ink-muted); margin-bottom: 24px; }
+.prose a, .contact-card a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+.prose a:hover, .contact-card a:hover { color: var(--ink); }
+
+/* Contact card */
+.contact-card {
+  margin-top: 8px; padding: 16px; border-radius: 16px;
+  background: var(--paper-raised); border: 1px solid var(--line); box-shadow: var(--shadow-sm);
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 24px;
+  font: 400 15px/24px var(--font-sans);
+}
+.contact-card .company { grid-column: 1 / -1; font: 500 20px/28px var(--font-display); letter-spacing: -0.01em; }
+.contact-card .label { font: 500 11px/24px var(--font-mono); letter-spacing: 0.02em; color: var(--ink-muted); }
+.contact-card .value { overflow-wrap: anywhere; }

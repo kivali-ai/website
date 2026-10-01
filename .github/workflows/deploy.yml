@@ -1,0 +1,66 @@
+# main is production. Every push to main (i.e. every merged PR) re-checks the repo and deploys
+# each Worker the push touched. Run it by hand from the Actions tab to redeploy every Worker.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deploys run one at a time, in order, and are never cancelled halfway through.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run check
+
+  changes:
+    name: Detect changed Workers
+    runs-on: ubuntu-latest
+    outputs:
+      workers: ${{ steps.detect.outputs.workers }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            workers=$(node scripts/workers.mjs list)
+          else
+            workers=$(node scripts/workers.mjs changed "${{ github.event.before }}" "${{ github.sha }}")
+          fi
+          echo "Workers to deploy: $workers"
+          echo "workers=$workers" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy (${{ matrix.worker }})
+    needs: [check, changes]
+    if: needs.changes.outputs.workers != '[]'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://kivali.ai
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: ${{ fromJSON(needs.changes.outputs.workers) }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: wrangler deploy
+        working-directory: ${{ matrix.worker }}
+        run: npx wrangler deploy --tag "${GITHUB_SHA::7}" --message "${GITHUB_SHA::7} via ${{ github.event_name }}"

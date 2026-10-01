@@ -1,0 +1,7 @@
+node_modules/
+.wrangler/
+.wrangler-dry-run/
+.dev.vars*
+.env*
+.DS_Store
+.claude/worktrees/

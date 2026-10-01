@@ -1,0 +1,17 @@
+{
+  "name": "kivali-website",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "workspaces": ["workers/*"],
+  "scripts": {
+    "dev": "wrangler dev --config workers/site/wrangler.jsonc",
+    "lint": "html-validate \"workers/*/public/**/*.html\"",
+    "check": "npm run lint && node scripts/workers.mjs check",
+    "routes": "node scripts/workers.mjs routes"
+  },
+  "devDependencies": {
+    "html-validate": "11.16.1",
+    "wrangler": "4.146.0"
+  }
+}

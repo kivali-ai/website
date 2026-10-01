@@ -1,0 +1,110 @@
+# Runs on every pull request into main:
+#   check    lint the HTML and dry-run build every Worker (make this a required status check)
+#   preview  upload a preview version of each Worker the PR touches and comment its URL on the PR.
+#            Preview versions are not deployed; production traffic is untouched.
+name: Pull request
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run check
+
+  changes:
+    name: Detect changed Workers
+    runs-on: ubuntu-latest
+    outputs:
+      workers: ${{ steps.detect.outputs.workers }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: detect
+        run: echo "workers=$(node scripts/workers.mjs changed "origin/${{ github.base_ref }}" HEAD)" >> "$GITHUB_OUTPUT"
+
+  preview:
+    name: Preview (${{ matrix.worker }})
+    needs: [check, changes]
+    # Secrets aren't available to pull requests from forks, so skip them.
+    if: needs.changes.outputs.workers != '[]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: ${{ fromJSON(needs.changes.outputs.workers) }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      - name: Upload preview version
+        id: upload
+        # A Worker must have been deployed once before versions can be uploaded to it, so a brand-new
+        # Worker has no preview on its first PR. That shouldn't block the merge that creates it.
+        continue-on-error: true
+        working-directory: ${{ matrix.worker }}
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Wrangler writes a machine-readable record of the upload (version id, preview URLs) here.
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.ndjson
+        run: |
+          npx wrangler versions upload \
+            --preview-alias "pr-${PR}" \
+            --tag "${HEAD_SHA::7}" \
+            --message "PR #${PR}: ${HEAD_REF}"
+          jq -r 'select(.type == "version-upload")
+            | "url=\(.preview_alias_url // .preview_url // "")", "version=\(.version_id)"' \
+            "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKER: ${{ matrix.worker }}
+          OUTCOME: ${{ steps.upload.outcome }}
+          URL: ${{ steps.upload.outputs.url }}
+          VERSION: ${{ steps.upload.outputs.version }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker="<!-- preview:${WORKER} -->"
+          if [ "$OUTCOME" = "success" ] && [ -n "$URL" ]; then
+            body="${marker}
+          **Preview for \`${WORKER}\`:** ${URL}
+
+          Version \`${VERSION}\` from ${HEAD_SHA::7}. Not deployed to production; merge to main to ship it."
+          else
+            body="${marker}
+          **No preview for \`${WORKER}\`.** The upload failed or returned no preview URL ([logs](${RUN_URL})).
+
+          This is expected for a Worker that has never been deployed; it gets previews after its first merge to main."
+          fi
+          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"${marker}\")) | .id" | head -n1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -f body="$body" > /dev/null
+          fi
