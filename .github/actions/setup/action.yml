@@ -3,7 +3,7 @@ description: Install Node (version from .nvmrc) and the repo's npm dependencies,
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v5
+    - uses: actions/setup-node@v7
       with:
         node-version-file: .nvmrc
         cache: npm
