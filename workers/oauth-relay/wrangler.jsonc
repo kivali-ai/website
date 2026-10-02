@@ -23,8 +23,12 @@
   "workers_dev": false,
   "preview_urls": true,
   // Workers Logs keeps every sign-in's log line (who, for which install, the
-  // outcome) in the dashboard. Codes and tokens are never logged.
-  "observability": { "enabled": true },
+  // outcome) in the dashboard, with the invocation logs around them. Codes and
+  // tokens are never logged.
+  "observability": {
+    "logs": { "enabled": true, "invocation_logs": true },
+    "traces": { "enabled": false }
+  },
   "vars": {
     // The public client. Not a secret: it appears in every consent URL.
     "GOOGLE_CLIENT_ID": "508969299515-ol3l2a67ola8hfm2loru9ne8hksl8kfq.apps.googleusercontent.com",
