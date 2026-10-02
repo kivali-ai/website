@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handle, installFromState, refuseExchange, whoSignedIn } from "./index.js";
 
-const CLIENT_ID = "508969299515-4eh9cdufhb3ntpc3panbku2s1dka8as4.apps.googleusercontent.com";
+const CLIENT_ID = "508969299515-ol3l2a67ola8hfm2loru9ne8hksl8kfq.apps.googleusercontent.com";
 const CALLBACK = "https://kivali.ai/oauth/google/callback";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
