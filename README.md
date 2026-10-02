@@ -7,6 +7,9 @@ workers/
   site/                 kivali.ai: static home, /privacy, /terms (assets-only Worker, no build step)
     wrangler.jsonc
     public/             served as-is; _headers sets security and cache headers
+  oauth-relay/          kivali.ai/oauth/google/*: the sign-in relay for Kivali's public Google client
+    wrangler.jsonc
+    src/index.js        two routes, no dependencies; src/index.test.js runs with `node --test`
 scripts/workers.mjs     finds Workers, works out which ones a change touches, lints their routes
 .github/workflows/
   pull-request.yml      PRs into main: check + per-PR preview URLs
@@ -18,7 +21,8 @@ scripts/workers.mjs     finds Workers, works out which ones a change touches, li
 ```sh
 npm ci
 npm run dev      # http://localhost:8787
-npm run check    # html-validate + `wrangler deploy --dry-run` for every Worker
+npm test         # the Workers' unit tests (node --test)
+npm run check    # html-validate + tests + `wrangler deploy --dry-run` for every Worker
 ```
 
 The pages are plain HTML and CSS with no client-side JavaScript. Edit `workers/site/public/` directly.
@@ -68,6 +72,54 @@ The site owns `kivali.ai` as a Custom Domain, and Cloudflare runs Workers on rou
 - **Whole-domain wildcards fail.** A route like `kivali.ai/*` or `*kivali.ai/*` would take every request away from the Worker that owns `kivali.ai` as a Custom Domain, i.e. the whole website.
 
 If a Worker needs a build step (TypeScript, bundling), `wrangler deploy` already bundles `main` with esbuild. Anything beyond that goes in a `build` field in its `wrangler.jsonc` (`"build": { "command": "npm run build" }`), which wrangler runs for both `--dry-run` and real deploys.
+
+## The sign-in relay (`workers/oauth-relay`)
+
+Every Kivali install signs people in with Google through one shared OAuth client whose
+id is baked into the Kivali server. Google issues a secret for that client and requires
+it at its token endpoint even with PKCE, so the secret lives in this Worker and nowhere
+else. The Worker serves two routes under `https://kivali.ai/oauth/google`, the base every
+Kivali build carries:
+
+| Route | Who calls it | What it does |
+| --- | --- | --- |
+| `GET /oauth/google/callback` | the browser, sent by Google | the redirect URI registered on the client. Decodes the install's own callback URL from `state` (`<nonce>.<base64url(url)>`), checks it is an `/auth/callback` over https (http only on loopback), and answers a 302 there with Google's query string unchanged. |
+| `POST /oauth/google/token` | the install, server to server | accepts only `grant_type=authorization_code` for the public client at the relay's own callback, with `code` and `code_verifier`; adds the secret, forwards to Google and returns Google's status and JSON verbatim. |
+
+The install trusts only Google's signed `id_token` (checked against Google's keys, with
+the nonce it sent), never this relay, so the relay can neither sign anyone in nor learn a
+session. It stores nothing. The full contract is `docs/AUTH.md` in the kivali repo.
+
+**What it logs.** One JSON line per step, in Workers Logs (the Worker's *Logs* tab): the
+install (`https://org.example.com`, `http://127.0.0.1:8080`), the Google account that
+signed in (`email`, `email_verified`, `hd` from the `id_token`), the outcome, the client
+IP, and a short hash of the code that ties a callback line to its token line. Codes,
+verifiers and tokens are never logged.
+
+**Rate limit.** 60 requests a minute per IP on both routes, through Cloudflare's rate
+limiting binding (configured under `unsafe` while it is in beta; the code runs without it).
+
+### One-time setup
+
+1. **Google Cloud console**, the Kivali project's OAuth client (a *Web application*
+   client): add `https://kivali.ai/oauth/google/callback` as an authorized redirect URI.
+   No JavaScript origins are needed. While the consent screen is in *Testing*, only the
+   listed test users can sign in; publish it for everyone else.
+2. **The secret.** In `workers/oauth-relay`, run `npx wrangler secret put GOOGLE_CLIENT_SECRET`
+   and paste the client secret (or add it in the dashboard under the Worker's Settings →
+   Variables and Secrets). Deploys keep it. Until it is set, the token route answers 500.
+3. **Deploy** by merging to `main` like any Worker. Then check:
+
+```sh
+curl -si 'https://kivali.ai/oauth/google/callback?code=x&state=n.aHR0cHM6Ly9leGFtcGxlLmNvbS9hdXRoL2NhbGxiYWNr'
+# 302 with Location: https://example.com/auth/callback?code=x&state=...
+curl -si -X POST https://kivali.ai/oauth/google/token -d grant_type=refresh_token
+# 400 {"error":"invalid_request","error_description":"grant_type must be authorization_code"}
+```
+
+A real sign-in from a Kivali install then shows up as two log lines, and the install
+signs the person in. If Google answers `redirect_uri_mismatch` on the consent page, step 1
+is missing.
 
 ## License
 
