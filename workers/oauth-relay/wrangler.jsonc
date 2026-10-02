@@ -1,0 +1,44 @@
+// The sign-in relay for Kivali's public Google OAuth client.
+//
+// Every Kivali install shares one Google client whose id is baked into the
+// server. Google issues a secret for that client and demands it at the token
+// endpoint even with PKCE, so the secret lives here and nowhere else. Two
+// routes, both under https://kivali.ai/oauth/google (the base every install
+// is built with):
+//
+//   GET  /oauth/google/callback   Google's redirect URI for the client; bounces
+//                                 the browser on to the install named in `state`
+//   POST /oauth/google/token      the code exchange; adds the secret and forwards
+//                                 it to Google, returning Google's answer verbatim
+//
+// Set the secret once with `npx wrangler secret put GOOGLE_CLIENT_SECRET` in
+// this directory (or in the dashboard); deploys keep it. The contract the
+// install relies on is docs/AUTH.md in the kivali repo; src/index.js follows it.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "kivali-oauth-relay",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "routes": [{ "pattern": "kivali.ai/oauth/google/*", "zone_name": "kivali.ai" }],
+  "workers_dev": false,
+  "preview_urls": true,
+  // Workers Logs keeps every sign-in's log line (who, for which install, the
+  // outcome) in the dashboard. Codes and tokens are never logged.
+  "observability": { "enabled": true },
+  "vars": {
+    // The public client. Not a secret: it appears in every consent URL.
+    "GOOGLE_CLIENT_ID": "508969299515-4eh9cdufhb3ntpc3panbku2s1dka8as4.apps.googleusercontent.com",
+    // The redirect URI registered on that client. The token route accepts a
+    // request only for this value, and the callback route is served at it.
+    "CALLBACK_URL": "https://kivali.ai/oauth/google/callback",
+    "GOOGLE_TOKEN_URL": "https://oauth2.googleapis.com/token"
+  },
+  // Per-IP rate limit on both routes: 60 requests a minute is far above any
+  // real sign-in rate. Cloudflare's rate limiting binding is configured under
+  // `unsafe` while it is in beta; src/index.js works without it.
+  "unsafe": {
+    "bindings": [
+      { "name": "LIMITER", "type": "ratelimit", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }
+    ]
+  }
+}
