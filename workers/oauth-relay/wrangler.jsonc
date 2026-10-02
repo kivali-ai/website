@@ -27,7 +27,7 @@
   "observability": { "enabled": true },
   "vars": {
     // The public client. Not a secret: it appears in every consent URL.
-    "GOOGLE_CLIENT_ID": "508969299515-4eh9cdufhb3ntpc3panbku2s1dka8as4.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID": "508969299515-ol3l2a67ola8hfm2loru9ne8hksl8kfq.apps.googleusercontent.com",
     // The redirect URI registered on that client. The token route accepts a
     // request only for this value, and the callback route is served at it.
     "CALLBACK_URL": "https://kivali.ai/oauth/google/callback",
