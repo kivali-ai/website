@@ -34,7 +34,11 @@ jobs:
         with:
           fetch-depth: 0
       - id: detect
-        run: echo "workers=$(node scripts/workers.mjs changed "origin/${{ github.base_ref }}" HEAD)" >> "$GITHUB_OUTPUT"
+        # Assign first so a failing script fails the step instead of passing an empty list on.
+        run: |
+          workers=$(node scripts/workers.mjs changed "origin/${{ github.base_ref }}" HEAD)
+          echo "Workers to preview: $workers"
+          echo "workers=$workers" >> "$GITHUB_OUTPUT"
 
   preview:
     name: Preview (${{ matrix.worker }})
