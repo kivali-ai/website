@@ -13,7 +13,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { unstable_readConfig as readConfig } from "wrangler";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const CONFIGS = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
@@ -53,7 +52,9 @@ function changedWorkers(base, head = "HEAD") {
 }
 
 // Every route and Custom Domain each Worker claims, read with wrangler's own config parser.
-function collectRoutes() {
+// wrangler is imported here rather than at the top so `list` and `changed` run without `npm ci`.
+async function collectRoutes() {
+  const { unstable_readConfig: readConfig } = await import("wrangler");
   return listWorkers().flatMap((dir) => {
     const file = CONFIGS.map((c) => join(ROOT, dir, c)).find(existsSync);
     const config = readConfig({ config: file });
@@ -69,8 +70,8 @@ function collectRoutes() {
 //   1. the same pattern claimed twice, which Cloudflare rejects at deploy time or which hides a mistake;
 //   2. a route covering every path of a Custom Domain host (kivali.ai/*, *kivali.ai/*), which would
 //      silently take over the Worker that owns that domain (e.g. the whole website).
-function lintRoutes() {
-  const routes = collectRoutes();
+async function lintRoutes() {
+  const routes = await collectRoutes();
   const errors = [];
 
   const byPattern = Map.groupBy(routes, (r) => r.pattern);
@@ -101,14 +102,14 @@ function lintRoutes() {
   console.log(`✓ ${routes.length} route(s) across ${new Set(routes.map((r) => r.dir)).size} worker(s), no conflicts`);
 }
 
-function printRoutes() {
-  for (const r of collectRoutes()) {
+async function printRoutes() {
+  for (const r of await collectRoutes()) {
     console.log(`${r.pattern.padEnd(40)} ${r.customDomain ? "custom domain" : "route        "}  ${r.dir}`);
   }
 }
 
-function check() {
-  lintRoutes();
+async function check() {
+  await lintRoutes();
   const workers = listWorkers();
   for (const w of workers) {
     console.log(`\n▸ ${w}`);
@@ -129,10 +130,10 @@ switch (cmd) {
     console.log(JSON.stringify(changedWorkers(...args)));
     break;
   case "routes":
-    printRoutes();
+    await printRoutes();
     break;
   case "check":
-    check();
+    await check();
     break;
   default:
     console.error("usage: workers.mjs list | changed <base> [head] | routes | check");
