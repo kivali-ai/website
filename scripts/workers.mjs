@@ -5,18 +5,22 @@
 //   node scripts/workers.mjs list                  every Worker, as a JSON array of directories
 //   node scripts/workers.mjs changed <base> [head] Workers touched between two commits (JSON array)
 //   node scripts/workers.mjs routes                print which Worker claims which route
-//   node scripts/workers.mjs check                 lint routes, then `wrangler deploy --dry-run` every Worker
+//   node scripts/workers.mjs check                 lint routes and secrets files, then `wrangler deploy --dry-run` every Worker
+//   node scripts/workers.mjs secrets <dir>         the Worker's declared secrets with their values, as JSON for
+//                                                  `wrangler secret bulk`, read from $GITHUB_SECRETS (toJSON(secrets))
 //
 // A change outside workers/ (package.json, the lockfile, scripts/, .github/ and so on) can affect
 // every Worker, so it selects all of them. Docs-only changes select none.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const CONFIGS = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
 const IGNORED = [/^README\.md$/, /^docs\//, /^\.gitignore$/, /^\.editorconfig$/, /^LICENSE/];
+const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 
 function listWorkers() {
   const dir = join(ROOT, "workers");
@@ -108,9 +112,38 @@ async function printRoutes() {
   }
 }
 
+// The secret names a Worker declares in its `secrets` file (one per line; blank lines and
+// `#` comments ignored). The file is optional. A name that is not UPPER_SNAKE is an error.
+export function declaredSecrets(dir) {
+  const file = join(isAbsolute(dir) ? dir : join(ROOT, dir), "secrets");
+  if (!existsSync(file)) return [];
+  const names = readFileSync(file, "utf8")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
+  const bad = names.filter((n) => !SECRET_NAME.test(n));
+  if (bad.length) throw new Error(`${dir}/secrets: not a secret name: ${bad.join(", ")}`);
+  return [...new Set(names)];
+}
+
+// The declared secrets with their values from `available` (the repository's Actions secrets),
+// as the object `wrangler secret bulk` takes. Every declared secret must be available.
+export function secretsFor(dir, available) {
+  const names = declaredSecrets(dir);
+  const missing = names.filter((n) => !(typeof available?.[n] === "string" && available[n] !== ""));
+  if (missing.length) {
+    throw new Error(`${dir} declares secrets that are not in the repository's Actions secrets: ${missing.join(", ")}`);
+  }
+  return Object.fromEntries(names.map((n) => [n, available[n]]));
+}
+
 async function check() {
   await lintRoutes();
   const workers = listWorkers();
+  for (const w of workers) {
+    const names = declaredSecrets(w);
+    if (names.length) console.log(`${w}: ${names.length} secret(s) declared: ${names.join(", ")}`);
+  }
   for (const w of workers) {
     console.log(`\n▸ ${w}`);
     execFileSync("npx", ["wrangler", "deploy", "--dry-run", "--outdir", join(ROOT, ".wrangler-dry-run", w)], {
@@ -121,21 +154,35 @@ async function check() {
   console.log(`\n✓ ${workers.length} worker(s) built`);
 }
 
-const [cmd, ...args] = process.argv.slice(2);
-switch (cmd) {
-  case "list":
-    console.log(JSON.stringify(listWorkers()));
-    break;
-  case "changed":
-    console.log(JSON.stringify(changedWorkers(...args)));
-    break;
-  case "routes":
-    await printRoutes();
-    break;
-  case "check":
-    await check();
-    break;
-  default:
-    console.error("usage: workers.mjs list | changed <base> [head] | routes | check");
-    process.exit(2);
+// The command line, unless this file was imported (the tests).
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const [cmd, ...args] = process.argv.slice(2);
+  switch (cmd) {
+    case "list":
+      console.log(JSON.stringify(listWorkers()));
+      break;
+    case "changed":
+      console.log(JSON.stringify(changedWorkers(...args)));
+      break;
+    case "routes":
+      await printRoutes();
+      break;
+    case "check":
+      await check();
+      break;
+    case "secrets": {
+      // Values never reach the terminal: the output is piped to wrangler.
+      const available = process.env.GITHUB_SECRETS ? JSON.parse(process.env.GITHUB_SECRETS) : {};
+      try {
+        console.log(JSON.stringify(secretsFor(args[0], available)));
+      } catch (e) {
+        console.error(`✘ ${e.message}`);
+        process.exit(1);
+      }
+      break;
+    }
+    default:
+      console.error("usage: workers.mjs list | changed <base> [head] | routes | check | secrets <dir>");
+      process.exit(2);
+  }
 }
