@@ -73,6 +73,17 @@ The site owns `kivali.ai` as a Custom Domain, and Cloudflare runs Workers on rou
 
 If a Worker needs a build step (TypeScript, bundling), `wrangler deploy` already bundles `main` with esbuild. Anything beyond that goes in a `build` field in its `wrangler.jsonc` (`"build": { "command": "npm run build" }`), which wrangler runs for both `--dry-run` and real deploys.
 
+### Secrets
+
+A Worker that needs secrets lists their names in `workers/<name>/secrets`, one per line (`#` comments allowed):
+
+```
+# the API key for ...
+SOME_API_KEY
+```
+
+Add each value under the same name to this repository's Actions secrets (Settings → Secrets and variables → Actions). After every deploy of that Worker, the deploy job puts the declared secrets on it with `wrangler secret bulk`, and fails if one is missing from the repository. To rotate a secret, update it in the repository and redeploy (Actions → Deploy → *Run workflow*). `npm run check` validates the file's names. Nothing is special-cased per Worker: the job reads the file. Previews from pull requests get no secrets.
+
 ## The sign-in relay (`workers/oauth-relay`)
 
 Every Kivali install signs people in with Google through one shared OAuth client whose
@@ -105,9 +116,10 @@ limiting binding (configured under `unsafe` while it is in beta; the code runs w
    client): add `https://kivali.ai/oauth/google/callback` as an authorized redirect URI.
    No JavaScript origins are needed. While the consent screen is in *Testing*, only the
    listed test users can sign in; publish it for everyone else.
-2. **The secret.** In `workers/oauth-relay`, run `npx wrangler secret put GOOGLE_CLIENT_SECRET`
-   and paste the client secret (or add it in the dashboard under the Worker's Settings →
-   Variables and Secrets). Deploys keep it. Until it is set, the token route answers 500.
+2. **The secret.** Add the client secret as `GOOGLE_CLIENT_SECRET` in this repository's
+   Actions secrets; the Worker declares that name in `workers/oauth-relay/secrets`, so the
+   deploy job puts it on the Worker (see "Secrets" above). Until it is on the Worker, the
+   token route answers 500 with "the relay has no client secret".
 3. **Deploy** by merging to `main` like any Worker. Then check:
 
 ```sh
