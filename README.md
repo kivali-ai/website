@@ -132,8 +132,8 @@ limiting binding (configured under `unsafe` while it is in beta; the code runs w
    No JavaScript origins are needed. While the consent screen is in *Testing*, only the
    listed test users can sign in; publish it for everyone else.
 2. **The secrets.** Add the client secret as `GOOGLE_CLIENT_SECRET`, and a fresh random
-   value (`openssl rand -base64 32`) as `RELAY_SEAL_KEY`, in this repository's Actions
-   secrets; the Worker declares both names in `workers/oauth-relay/secrets`, so the deploy
+   value (`openssl rand -base64 32`) as `RELAY_SEAL_KEY`, in the `production`
+   environment's secrets (never as repository secrets); the Worker declares both names in `workers/oauth-relay/secrets`, so the deploy
    job puts them on the Worker (see "Secrets" above) and fails if either is missing. Until
    they are on the Worker, the callback answers 500 to a code and the token route answers
    500. Rotating `RELAY_SEAL_KEY` only fails sign-ins in flight at that moment.
