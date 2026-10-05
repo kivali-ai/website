@@ -94,18 +94,34 @@ Kivali build carries:
 
 | Route | Who calls it | What it does |
 | --- | --- | --- |
-| `GET /oauth/google/callback` | the browser, sent by Google | the redirect URI registered on the client. Decodes the install's own callback URL from `state` (`<nonce>.<base64url(url)>`), checks it is an `/auth/callback` over https (http only on loopback), and answers a 302 there with Google's query string unchanged. |
-| `POST /oauth/google/token` | the install, server to server | accepts only `grant_type=authorization_code` for the public client at the relay's own callback, with `code` and `code_verifier`; adds the secret, forwards to Google and returns Google's status and JSON verbatim. |
+| `GET /oauth/google/callback` | the browser, sent by Google | the redirect URI registered on the client. Decodes the install's own callback URL from `state` (`<nonce>.<base64url(url)>`), checks it is an `/auth/callback` over https (http only on loopback), and answers a 302 there with Google's query string, its `code` replaced by the code *sealed* for that install. |
+| `POST /oauth/google/token` | the install, server to server | accepts only `grant_type=authorization_code` for the public client at the relay's own callback, with the sealed `code`, `code_verifier` and the install's own callback URL as `return_url`; opens the code, refuses it unless it was sealed for that `return_url` in the last ten minutes, adds the secret and forwards it to Google. Returns Google's error verbatim, or on success only the `id_token` (with `token_type` and `expires_in`): no access or refresh token ever leaves the relay. |
 
 The install trusts only Google's signed `id_token` (checked against Google's keys, with
 the nonce it sent), never this relay, so the relay can neither sign anyone in nor learn a
 session. It stores nothing. The full contract is `docs/AUTH.md` in the kivali repo.
+
+**Why codes are sealed.** `state` is whatever the browser brought, so anyone can put any
+address in it. Without sealing, an attacker could start a sign-in at an install, change
+the return address in that Google link to a server they run, and get someone allowed on
+the install to open it: the victim's code would arrive at the attacker's server, and the
+attacker, who holds that sign-in's cookie, PKCE verifier and nonce, could redeem it at the
+install and be signed in as the victim. Now the browser only ever carries
+`k1.<AES-GCM(code, install callback URL, expiry)>` under `RELAY_SEAL_KEY`, which only this
+Worker holds, and the token route redeems it only for the install it was sent to. A code
+lured to another address is useless at every other install.
 
 **What it logs.** One JSON line per step, in Workers Logs (the Worker's *Logs* tab): the
 install (`https://org.example.com`, `http://127.0.0.1:8080`), the Google account that
 signed in (`email`, `email_verified`, `hd` from the `id_token`), the outcome, the client
 IP, and a short hash of the code that ties a callback line to its token line. Codes,
 verifiers and tokens are never logged.
+
+Only a `token` line with `"outcome":"exchanged"` records a sign-in. Its `email` comes from
+the answer the relay itself got from Google, and its `install` from the sealed code, which
+only the relay can write. A `callback` line records only that some browser fetched the
+callback URL: anyone can request it with any `state` and `error`, so its fields are
+whatever the request said.
 
 **Rate limit.** 60 requests a minute per IP on both routes, through Cloudflare's rate
 limiting binding (configured under `unsafe` while it is in beta; the code runs without it).
@@ -116,15 +132,17 @@ limiting binding (configured under `unsafe` while it is in beta; the code runs w
    client): add `https://kivali.ai/oauth/google/callback` as an authorized redirect URI.
    No JavaScript origins are needed. While the consent screen is in *Testing*, only the
    listed test users can sign in; publish it for everyone else.
-2. **The secret.** Add the client secret as `GOOGLE_CLIENT_SECRET` in this repository's
-   Actions secrets; the Worker declares that name in `workers/oauth-relay/secrets`, so the
-   deploy job puts it on the Worker (see "Secrets" above). Until it is on the Worker, the
-   token route answers 500 with "the relay has no client secret".
+2. **The secrets.** Add the client secret as `GOOGLE_CLIENT_SECRET`, and a fresh random
+   value (`openssl rand -base64 32`) as `RELAY_SEAL_KEY`, in this repository's Actions
+   secrets; the Worker declares both names in `workers/oauth-relay/secrets`, so the deploy
+   job puts them on the Worker (see "Secrets" above) and fails if either is missing. Until
+   they are on the Worker, the callback answers 500 to a code and the token route answers
+   500. Rotating `RELAY_SEAL_KEY` only fails sign-ins in flight at that moment.
 3. **Deploy** by merging to `main` like any Worker. Then check:
 
 ```sh
 curl -si 'https://kivali.ai/oauth/google/callback?code=x&state=n.aHR0cHM6Ly9leGFtcGxlLmNvbS9hdXRoL2NhbGxiYWNr'
-# 302 with Location: https://example.com/auth/callback?code=x&state=...
+# 302 with Location: https://example.com/auth/callback?code=k1.…&state=...
 curl -si -X POST https://kivali.ai/oauth/google/token -d grant_type=refresh_token
 # 400 {"error":"invalid_request","error_description":"grant_type must be authorization_code"}
 ```

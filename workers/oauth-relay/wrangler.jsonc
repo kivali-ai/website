@@ -7,13 +7,15 @@
 // is built with):
 //
 //   GET  /oauth/google/callback   Google's redirect URI for the client; bounces
-//                                 the browser on to the install named in `state`
-//   POST /oauth/google/token      the code exchange; adds the secret and forwards
-//                                 it to Google, returning Google's answer verbatim
+//                                 the browser on to the install named in `state`,
+//                                 with Google's code sealed for that install
+//   POST /oauth/google/token      the code exchange; redeems a sealed code only for
+//                                 its install, adds the secret, forwards it to
+//                                 Google, and returns the id_token alone
 //
-// Set the secret once with `npx wrangler secret put GOOGLE_CLIENT_SECRET` in
-// this directory (or in the dashboard); deploys keep it. The contract the
-// install relies on is docs/AUTH.md in the kivali repo; src/index.js follows it.
+// The secrets (GOOGLE_CLIENT_SECRET and RELAY_SEAL_KEY) are listed in `secrets`
+// and put on the Worker by the deploy job. The contract the install relies on
+// is docs/AUTH.md in the kivali repo; src/index.js follows it.
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "kivali-oauth-relay",
