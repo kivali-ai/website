@@ -64,9 +64,9 @@ jobs:
       - name: wrangler deploy
         working-directory: ${{ matrix.worker }}
         run: npx wrangler deploy --tag "${GITHUB_SHA::7}" --message "${GITHUB_SHA::7} via ${{ github.event_name }}"
-      # The secrets a Worker declares in its `secrets` file are put on it from this
-      # repository's Actions secrets after every deploy of it, so a rotation is a secret
-      # update plus a redeploy. A declared secret the repository lacks fails the deploy.
+      # The secrets a Worker declares in its `secrets` file are put on it from the
+      # `production` environment's secrets after every deploy of it, so a rotation is a
+      # secret update plus a redeploy. A declared secret that is missing fails the deploy.
       - name: wrangler secret bulk
         working-directory: ${{ matrix.worker }}
         env:

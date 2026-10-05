@@ -20,8 +20,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-09-01",
   "routes": [{ "pattern": "kivali.ai/oauth/google/*", "zone_name": "kivali.ai" }],
+  // Served only from kivali.ai. A preview version would run with this Worker's
+  // secrets, so there are none.
   "workers_dev": false,
-  "preview_urls": true,
+  "preview_urls": false,
   // Workers Logs keeps every sign-in's log line (who, for which install, the
   // outcome) in the dashboard, with the invocation logs around them. Codes and
   // tokens are never logged.

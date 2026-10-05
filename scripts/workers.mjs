@@ -126,13 +126,13 @@ export function declaredSecrets(dir) {
   return [...new Set(names)];
 }
 
-// The declared secrets with their values from `available` (the repository's Actions secrets),
+// The declared secrets with their values from `available` (the deploy job's secrets: the `production` environment's),
 // as the object `wrangler secret bulk` takes. Every declared secret must be available.
 export function secretsFor(dir, available) {
   const names = declaredSecrets(dir);
   const missing = names.filter((n) => !(typeof available?.[n] === "string" && available[n] !== ""));
   if (missing.length) {
-    throw new Error(`${dir} declares secrets that are not in the repository's Actions secrets: ${missing.join(", ")}`);
+    throw new Error(`${dir} declares secrets that are not in the production environment's secrets: ${missing.join(", ")}`);
   }
   return Object.fromEntries(names.map((n) => [n, available[n]]));
 }

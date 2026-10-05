@@ -30,7 +30,7 @@ test("a name that is not UPPER_SNAKE is refused", () => {
 test("secretsFor pairs every declared name with its value and names what is missing", () => {
   const dir = worker("API_TOKEN\nOTHER_SECRET\n");
   assert.deepEqual(secretsFor(dir, { API_TOKEN: "t", OTHER_SECRET: "o", UNRELATED: "u" }), { API_TOKEN: "t", OTHER_SECRET: "o" });
-  assert.throws(() => secretsFor(dir, { API_TOKEN: "t" }), /not in the repository's Actions secrets: OTHER_SECRET/);
+  assert.throws(() => secretsFor(dir, { API_TOKEN: "t" }), /not in the production environment's secrets: OTHER_SECRET/);
   assert.throws(() => secretsFor(dir, { API_TOKEN: "t", OTHER_SECRET: "" }), /OTHER_SECRET/);
   assert.throws(() => secretsFor(dir, undefined), /API_TOKEN, OTHER_SECRET/);
 });
