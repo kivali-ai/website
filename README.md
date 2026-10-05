@@ -12,7 +12,7 @@ workers/
     src/index.js        two routes, no dependencies; src/index.test.js runs with `node --test`
 scripts/workers.mjs     finds Workers, works out which ones a change touches, lints their routes
 .github/workflows/
-  pull-request.yml      PRs into main: check + per-PR preview URLs
+  pull-request.yml      PRs into main: check (no secrets)
   deploy.yml            pushes to main: check + deploy to production
 ```
 
@@ -32,7 +32,7 @@ The pages are plain HTML and CSS with no client-side JavaScript. Edit `workers/s
 
 `main` is production. Work on a branch and open a PR into `main`.
 
-- **Pull request** (`pull-request.yml`): runs `npm run check`, then uploads a *preview version* of each Worker the PR changes and comments its URL on the PR (`https://pr-<n>-<worker>.<subdomain>.workers.dev`). Previews never take production traffic. PRs from forks get the check but no preview, because secrets aren't shared with them.
+- **Pull request** (`pull-request.yml`): runs `npm run check` (HTML lint, tests, a dry-run build of every Worker). It gets no secrets. There are no preview deployments: a pull request runs its own copy of the workflow files, so any secret a PR job can read, any branch can print, and a preview version of a Worker runs with that Worker's real secrets. Try changes locally with `npm run dev` (or `npx wrangler dev` in a Worker's directory).
 - **Merge to main** (`deploy.yml`): runs the check again, then `wrangler deploy` for each Worker the push changed. Changes outside `workers/` (lockfile, scripts, workflows) redeploy every Worker; README-only changes deploy nothing. Deploys are serialized and never cancelled mid-flight.
 - **Manual redeploy**: Actions → Deploy → *Run workflow* deploys every Worker from `main`.
 - **Rollback**: `npx wrangler rollback` in the Worker's directory, or Workers & Pages → the Worker → Deployments in the dashboard. Then revert the commit on `main`.
@@ -40,11 +40,10 @@ The pages are plain HTML and CSS with no client-side JavaScript. Edit `workers/s
 ## One-time setup
 
 1. **Cloudflare API token.** Dashboard → My Profile → API Tokens → *Create Token* → the **Edit Cloudflare Workers** template. Scope it to the Kivali account and the `kivali.ai` zone. It needs Workers Scripts: Edit (account), and Workers Routes: Edit plus DNS: Edit on the zone, because the site creates its Custom Domain record.
-2. **GitHub secrets.** Repo → Settings → Secrets and variables → Actions → add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (the account ID is on the Workers & Pages overview page).
-3. **GitHub environment.** Settings → Environments → create `production`. Optionally add required reviewers or restrict it to `main`. The deploy job runs in this environment, so its history shows on the repo page.
+2. **GitHub environment.** Settings → Environments → create `production`, and under *Deployment branches and tags* allow only `main`. Optionally add required reviewers.
+3. **Secrets, in the environment only.** Settings → Environments → `production` → *Environment secrets*: add `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (on the Workers & Pages overview page) and every Worker secret (below). Keep *repository* secrets empty: a repository secret is readable by any branch's workflow, an environment secret only by jobs that environment admits, i.e. the deploy job on `main`.
 4. **Branch protection.** Protect `main`: require a PR and require the **Check** status check to pass.
-5. **workers.dev subdomain.** PR previews live on `*.workers.dev`, so the account needs a workers.dev subdomain (Workers & Pages → Settings). Preview URLs are public; put them behind Cloudflare Access if that matters.
-6. **First deploy.** Previews only work for a Worker that has been deployed once, so the first push to `main` (or a manual run of Deploy) creates `kivali-site` and attaches `kivali.ai` to it. If `kivali.ai` already has a DNS record pointing somewhere else, remove it first or the Custom Domain can't be attached.
+5. **First deploy.** The first push to `main` (or a manual run of Deploy) creates `kivali-site` and attaches `kivali.ai` to it. If `kivali.ai` already has a DNS record pointing somewhere else, remove it first or the Custom Domain can't be attached.
 
 ## Adding another Worker
 
@@ -59,7 +58,7 @@ To serve it on a path of the site, give it a route on the zone instead of a Cust
   "compatibility_date": "2026-09-01",
   "routes": [{ "pattern": "kivali.ai/api/*", "zone_name": "kivali.ai" }],
   "workers_dev": false,
-  "preview_urls": true
+  "preview_urls": false
 }
 ```
 
@@ -82,7 +81,7 @@ A Worker that needs secrets lists their names in `workers/<name>/secrets`, one p
 SOME_API_KEY
 ```
 
-Add each value under the same name to this repository's Actions secrets (Settings → Secrets and variables → Actions). After every deploy of that Worker, the deploy job puts the declared secrets on it with `wrangler secret bulk`, and fails if one is missing from the repository. To rotate a secret, update it in the repository and redeploy (Actions → Deploy → *Run workflow*). `npm run check` validates the file's names. Nothing is special-cased per Worker: the job reads the file. Previews from pull requests get no secrets.
+Add each value under the same name to the `production` environment's secrets (Settings → Environments → `production`), never as a repository secret. After every deploy of that Worker, the deploy job puts the declared secrets on it with `wrangler secret bulk`, and fails if one is missing. To rotate a secret, update it in the environment and redeploy (Actions → Deploy → *Run workflow*). `npm run check` validates the file's names. Nothing is special-cased per Worker: the job reads the file.
 
 ## The sign-in relay (`workers/oauth-relay`)
 
