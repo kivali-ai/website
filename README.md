@@ -7,6 +7,9 @@ workers/
   site/                 kivali.ai: static home, /privacy, /terms (assets-only Worker, no build step)
     wrangler.jsonc
     public/             served as-is; _headers sets security and cache headers
+  download/             kivali.ai/download, /download/macos, /download/windows: redirects to the latest Kivali Desktop installer
+    wrangler.jsonc
+    src/index.js        reads the release's latest.json, no dependencies; src/index.test.js runs with `node --test`
   oauth-relay/          kivali.ai/oauth/google/*: the sign-in relay for Kivali's public Google client
     wrangler.jsonc
     src/index.js        two routes, no dependencies; src/index.test.js runs with `node --test`
