@@ -82,8 +82,8 @@ a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 }
 .home-main .motif { margin-top: 44px; padding: 12px 16px; }
 
-/* Header: the GitHub mark, top right, linking to the repository. */
-.site-header { position: absolute; top: 0; right: 0; padding: 24px 32px; }
+/* Header: the GitHub mark, top right, linking to the repository. It sits above the main column, which comes later in the document and would otherwise cover it. */
+.site-header { position: absolute; top: 0; right: 0; z-index: 1; padding: 24px 32px; }
 .github-link { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: var(--ink-muted); }
 .github-link:hover { color: var(--ink); }
 .github-link svg { display: block; width: 24px; height: 24px; }
