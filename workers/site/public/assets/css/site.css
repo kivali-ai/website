@@ -82,6 +82,25 @@ a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 }
 .home-main .motif { margin-top: 44px; padding: 12px 16px; }
 
+/* Header: the GitHub mark, top right, linking to the repository. */
+.site-header { position: absolute; top: 0; right: 0; padding: 24px 32px; }
+.github-link { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: var(--ink-muted); }
+.github-link:hover { color: var(--ink); }
+.github-link svg { display: block; width: 24px; height: 24px; }
+
+/* Download buttons: the design system's primary button (ink fill, 36px, 10px corners), one per platform. */
+.downloads { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
+.button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 16px;
+  border-radius: 10px; background: var(--ink); color: var(--paper);
+  font: 500 14px/1 var(--font-sans); white-space: nowrap;
+  transition: background-color 120ms var(--ease-out), transform 120ms var(--ease-out);
+}
+.button:hover { background: color-mix(in srgb, var(--ink) 86%, var(--paper)); color: var(--paper); }
+.button:active { transform: translateY(1px); }
+.button-mark { display: block; width: 16px; height: 16px; flex: none; }
+.downloads-note { margin: 16px 0 0; padding: 4px 12px; font: 500 11px/16px var(--font-mono); letter-spacing: 0.02em; color: var(--ink-muted); }
+
 /* Footer */
 .site-footer {
   position: relative; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
