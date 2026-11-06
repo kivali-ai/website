@@ -12,7 +12,7 @@
     "routes": "node scripts/workers.mjs routes"
   },
   "devDependencies": {
-    "html-validate": "11.16.4",
-    "wrangler": "4.151.2"
+    "html-validate": "11.18.0",
+    "wrangler": "4.156.2"
   }
 }
